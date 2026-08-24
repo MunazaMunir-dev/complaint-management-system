@@ -39,48 +39,48 @@ async function connectDB() {
 
   console.log("MongoDB Connected");
 }
-
 // =====================================================
 // CORS
 // =====================================================
 
 const allowedOrigins = [
-  // Vercel Environment Variable
-  process.env.FRONTEND_URL,
+  "https://complaint-management-system-r6ft.vercel.app",
 
-  // CURRENT PRODUCTION FRONTEND
+  // Other Vercel frontend deployments
   "https://complaint-management-system-sgrm.vercel.app",
-
-  // OTHER FRONTEND DEPLOYMENTS
   "https://complaint-management-system-lake.vercel.app",
   "https://complaint-management-system-rzmh.vercel.app",
   "https://complaint-management-system-ppnq.vercel.app",
 
-  // LOCAL DEVELOPMENT
+  // Local development
   "http://localhost:5173",
   "http://localhost:3000",
 ].filter(Boolean);
 
-console.log("Allowed Origins:", allowedOrigins);
-
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Requests without Origin
-      // e.g. Postman / server-to-server
+      // Postman / server-to-server
       if (!origin) {
         return callback(null, true);
       }
 
+      // Exact allowed frontend
       if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // Allow Vercel preview deployments of this project
+      if (
+        origin.endsWith(".vercel.app") &&
+        origin.includes("complaint-management-system")
+      ) {
         return callback(null, true);
       }
 
       console.log("CORS blocked origin:", origin);
 
-      return callback(
-        new Error("Not allowed by CORS")
-      );
+      return callback(new Error("Not allowed by CORS"));
     },
 
     credentials: true,
@@ -98,9 +98,10 @@ app.use(
       "Content-Type",
       "Authorization",
     ],
+
+    optionsSuccessStatus: 204,
   })
 );
-
 // =====================================================
 // BODY PARSER
 // =====================================================
