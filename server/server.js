@@ -47,14 +47,14 @@ async function connectDB() {
 const allowedOrigins = [
   process.env.FRONTEND_URL,
 
-  // Current production frontend
-  "https://complaint-management-system-lake.vercel.app",
+  // CURRENT PRODUCTION FRONTEND
+  "https://complaint-management-system-sgrm.vercel.app",
 
-  // Previous frontend deployments
+  // OTHER FRONTEND DEPLOYMENTS
   "https://complaint-management-system-rzmh.vercel.app",
   "https://complaint-management-system-ppnq.vercel.app",
 
-  // Local development
+  // LOCAL DEVELOPMENT
   "http://localhost:5173",
   "http://localhost:3000",
 ].filter(Boolean);
@@ -65,7 +65,7 @@ app.use(
   cors({
     origin: function (origin, callback) {
       // Allow requests without Origin
-      // e.g. Postman or server-to-server requests
+      // e.g. Postman / server-to-server
       if (!origin) {
         return callback(null, true);
       }
@@ -121,10 +121,7 @@ app.use(async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.error(
-      "MongoDB Error:",
-      error
-    );
+    console.error("MongoDB Error:", error);
 
     return res.status(500).json({
       success: false,
@@ -234,31 +231,21 @@ app.use((req, res) => {
 // ERROR HANDLER
 // =====================================================
 
-app.use(
-  (err, req, res, next) => {
-    console.error(
-      "Server Error:",
-      err
-    );
+app.use((err, req, res, next) => {
+  console.error("Server Error:", err);
 
-    if (
-      err.message ===
-      "Not allowed by CORS"
-    ) {
-      return res.status(403).json({
-        success: false,
-        message:
-          "CORS blocked this origin",
-      });
-    }
-
-    return res.status(500).json({
+  if (err.message === "Not allowed by CORS") {
+    return res.status(403).json({
       success: false,
-      message:
-        "Internal server error",
+      message: "CORS blocked this origin",
     });
   }
-);
+
+  return res.status(500).json({
+    success: false,
+    message: "Internal server error",
+  });
+});
 
 // =====================================================
 // EXPORT FOR VERCEL
@@ -271,8 +258,7 @@ module.exports = app;
 // =====================================================
 
 if (require.main === module) {
-  const PORT =
-    process.env.PORT || 5000;
+  const PORT = process.env.PORT || 5000;
 
   app.listen(PORT, () => {
     console.log(
