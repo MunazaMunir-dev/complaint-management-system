@@ -1,4 +1,3 @@
-
 const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
@@ -9,21 +8,24 @@ dotenv.config();
 
 const app = express();
 
-// ==============================
-// Environment
-// ==============================
+// =====================================================
+// ENVIRONMENT
+// =====================================================
 
 console.log("MONGO_URI exists:", !!process.env.MONGO_URI);
 console.log("FRONTEND_URL:", process.env.FRONTEND_URL);
 
-// ==============================
-// MongoDB Connection
-// ==============================
+// =====================================================
+// MONGODB CONNECTION
+// =====================================================
 
 let isConnected = false;
 
 async function connectDB() {
-  if (isConnected && mongoose.connection.readyState === 1) {
+  if (
+    isConnected &&
+    mongoose.connection.readyState === 1
+  ) {
     return;
   }
 
@@ -38,28 +40,32 @@ async function connectDB() {
   console.log("MongoDB Connected");
 }
 
-// ==============================
+// =====================================================
 // CORS
-// ==============================
+// =====================================================
 
 const allowedOrigins = [
   process.env.FRONTEND_URL,
 
-  // Current Vercel frontend
-  "https://complaint-management-system-rzmh.vercel.app",
+  // Current production frontend
+  "https://complaint-management-system-lake.vercel.app",
 
-  // Previous production frontend
+  // Previous frontend deployments
+  "https://complaint-management-system-rzmh.vercel.app",
   "https://complaint-management-system-ppnq.vercel.app",
 
   // Local development
   "http://localhost:5173",
+  "http://localhost:3000",
 ].filter(Boolean);
+
+console.log("Allowed Origins:", allowedOrigins);
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests without an origin
-      // such as Postman/server-to-server requests
+      // Allow requests without Origin
+      // e.g. Postman or server-to-server requests
       if (!origin) {
         return callback(null, true);
       }
@@ -70,12 +76,21 @@ app.use(
 
       console.log("CORS blocked origin:", origin);
 
-      return callback(new Error("Not allowed by CORS"));
+      return callback(
+        new Error("Not allowed by CORS")
+      );
     },
 
     credentials: true,
 
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    methods: [
+      "GET",
+      "POST",
+      "PUT",
+      "PATCH",
+      "DELETE",
+      "OPTIONS",
+    ],
 
     allowedHeaders: [
       "Content-Type",
@@ -84,24 +99,32 @@ app.use(
   })
 );
 
-// ==============================
-// Body Parser
-// ==============================
+// =====================================================
+// BODY PARSER
+// =====================================================
 
 app.use(express.json());
 
-app.use(express.urlencoded({ extended: true }));
+app.use(
+  express.urlencoded({
+    extended: true,
+  })
+);
 
-// ==============================
-// Database Middleware
-// ==============================
+// =====================================================
+// DATABASE MIDDLEWARE
+// =====================================================
 
 app.use(async (req, res, next) => {
   try {
     await connectDB();
+
     next();
   } catch (error) {
-    console.error("MongoDB Error:", error);
+    console.error(
+      "MongoDB Error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
@@ -110,18 +133,20 @@ app.use(async (req, res, next) => {
   }
 });
 
-// ==============================
-// Upload Images
-// ==============================
+// =====================================================
+// UPLOADS
+// =====================================================
 
 app.use(
   "/uploads",
-  express.static(path.join(__dirname, "uploads"))
+  express.static(
+    path.join(__dirname, "uploads")
+  )
 );
 
-// ==============================
-// Routes
-// ==============================
+// =====================================================
+// ROUTES
+// =====================================================
 
 const authRoutes = require("./routes/authRoutes");
 const testRoutes = require("./routes/testRoutes");
@@ -129,15 +154,34 @@ const complaintRoutes = require("./routes/complaintRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const commentRoutes = require("./routes/commentRoutes");
 
-app.use("/api/auth", authRoutes);
-app.use("/api/test", testRoutes);
-app.use("/api/complaints", complaintRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/comments", commentRoutes);
+app.use(
+  "/api/auth",
+  authRoutes
+);
 
-// ==============================
-// Health Check
-// ==============================
+app.use(
+  "/api/test",
+  testRoutes
+);
+
+app.use(
+  "/api/complaints",
+  complaintRoutes
+);
+
+app.use(
+  "/api/admin",
+  adminRoutes
+);
+
+app.use(
+  "/api/comments",
+  commentRoutes
+);
+
+// =====================================================
+// HEALTH CHECK
+// =====================================================
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -146,12 +190,16 @@ app.get("/api/health", async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Server and database are working",
-      database: mongoose.connection.readyState === 1
-        ? "connected"
-        : "disconnected",
+      database:
+        mongoose.connection.readyState === 1
+          ? "connected"
+          : "disconnected",
     });
   } catch (error) {
-    console.error("Health check error:", error);
+    console.error(
+      "Health check error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
@@ -160,20 +208,20 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-// ==============================
-// Home
-// ==============================
+// =====================================================
+// HOME
+// =====================================================
 
 app.get("/", (req, res) => {
-  res.json({
+  res.status(200).json({
     success: true,
     message: "Complaint API is running...",
   });
 });
 
-// ==============================
+// =====================================================
 // 404
-// ==============================
+// =====================================================
 
 app.use((req, res) => {
   res.status(404).json({
@@ -182,40 +230,53 @@ app.use((req, res) => {
   });
 });
 
-// ==============================
-// Error Handler
-// ==============================
+// =====================================================
+// ERROR HANDLER
+// =====================================================
 
-app.use((err, req, res, next) => {
-  console.error("Server Error:", err);
+app.use(
+  (err, req, res, next) => {
+    console.error(
+      "Server Error:",
+      err
+    );
 
-  if (err.message === "Not allowed by CORS") {
-    return res.status(403).json({
+    if (
+      err.message ===
+      "Not allowed by CORS"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "CORS blocked this origin",
+      });
+    }
+
+    return res.status(500).json({
       success: false,
-      message: "CORS blocked this origin",
+      message:
+        "Internal server error",
     });
   }
+);
 
-  return res.status(500).json({
-    success: false,
-    message: "Internal server error",
-  });
-});
-
-// ==============================
-// Export for Vercel
-// ==============================
+// =====================================================
+// EXPORT FOR VERCEL
+// =====================================================
 
 module.exports = app;
 
-// ==============================
-// Local Development
-// ==============================
+// =====================================================
+// LOCAL DEVELOPMENT
+// =====================================================
 
 if (require.main === module) {
-  const PORT = process.env.PORT || 5000;
+  const PORT =
+    process.env.PORT || 5000;
 
   app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(
+      `Server running on port ${PORT}`
+    );
   });
 }
