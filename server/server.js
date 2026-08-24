@@ -9,19 +9,20 @@ dotenv.config();
 const app = express();
 
 // ==============================
-// Environment
+// Environment Check
 // ==============================
 
 console.log("MONGO_URI exists:", !!process.env.MONGO_URI);
+console.log("FRONTEND_URL:", process.env.FRONTEND_URL);
 
 // ==============================
-// MongoDB
+// MongoDB Connection
 // ==============================
 
 let isConnected = false;
 
 async function connectDB() {
-  if (isConnected) {
+  if (isConnected && mongoose.connection.readyState === 1) {
     return;
   }
 
@@ -37,17 +38,60 @@ async function connectDB() {
 }
 
 // ==============================
-// Middleware
+// CORS
 // ==============================
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://complaint-management-system-ppnq.vercel.app",
+];
 
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: function (origin, callback) {
+      // Allow requests without origin
+      // (Postman, server-to-server, etc.)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.log("❌ CORS blocked:", origin);
+
+      return callback(new Error("Not allowed by CORS"));
+    },
+
     credentials: true,
+
+    methods: [
+      "GET",
+      "POST",
+      "PUT",
+      "PATCH",
+      "DELETE",
+      "OPTIONS",
+    ],
+
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+    ],
   })
 );
 
+// Handle preflight requests
+app.options("*", cors());
+
+// ==============================
+// Body Parser
+// ==============================
+
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // ==============================
 // Database Middleware
@@ -63,6 +107,7 @@ app.use(async (req, res, next) => {
     return res.status(500).json({
       success: false,
       message: "Database connection failed",
+      error: error.message,
     });
   }
 });
@@ -93,14 +138,36 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/comments", commentRoutes);
 
 // ==============================
-// Home
+// Home Route
 // ==============================
 
 app.get("/", (req, res) => {
-  res.json({
+  res.status(200).json({
     success: true,
     message: "Complaint API is running...",
   });
+});
+
+// ==============================
+// Health Check
+// ==============================
+
+app.get("/api/health", async (req, res) => {
+  try {
+    await connectDB();
+
+    res.status(200).json({
+      success: true,
+      message: "Server and database are working",
+      database: "connected",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Database connection failed",
+      error: error.message,
+    });
+  }
 });
 
 // ==============================
@@ -115,7 +182,32 @@ app.use((req, res) => {
 });
 
 // ==============================
-// Export
+// Error Handler
+// ==============================
+
+app.use((err, req, res, next) => {
+  console.error("❌ Server Error:", err);
+
+  res.status(500).json({
+    success: false,
+    message: err.message || "Internal server error",
+  });
+});
+
+// ==============================
+// Export for Vercel
 // ==============================
 
 module.exports = app;
+
+// ==============================
+// Local Server
+// ==============================
+
+if (require.main === module) {
+  const PORT = process.env.PORT || 5000;
+
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+  });
+}
