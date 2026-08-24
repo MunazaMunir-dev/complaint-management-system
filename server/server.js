@@ -1,33 +1,40 @@
-
-const dns = require("dns");
-
-// DNS servers for MongoDB Atlas SRV resolution
-dns.setServers(["8.8.8.8", "1.1.1.1"]);
-
 const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const path = require("path");
-const http = require("http");
-const { Server } = require("socket.io");
 
 dotenv.config();
-
-// Check environment variable
-console.log("MONGO_URI exists:", !!process.env.MONGO_URI);
 
 const app = express();
 
 // ==============================
-// Routes
+// Environment
 // ==============================
 
-const authRoutes = require("./routes/authRoutes");
-const testRoutes = require("./routes/testRoutes");
-const complaintRoutes = require("./routes/complaintRoutes");
-const adminRoutes = require("./routes/adminRoutes");
-const commentRoutes = require("./routes/commentRoutes");
+console.log("MONGO_URI exists:", !!process.env.MONGO_URI);
+
+// ==============================
+// MongoDB
+// ==============================
+
+let isConnected = false;
+
+async function connectDB() {
+  if (isConnected) {
+    return;
+  }
+
+  if (!process.env.MONGO_URI) {
+    throw new Error("MONGO_URI is not defined");
+  }
+
+  await mongoose.connect(process.env.MONGO_URI);
+
+  isConnected = true;
+
+  console.log("✅ MongoDB Connected");
+}
 
 // ==============================
 // Middleware
@@ -35,12 +42,30 @@ const commentRoutes = require("./routes/commentRoutes");
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
     credentials: true,
   })
 );
 
 app.use(express.json());
+
+// ==============================
+// Database Middleware
+// ==============================
+
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error("❌ MongoDB Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Database connection failed",
+    });
+  }
+});
 
 // ==============================
 // Upload Images
@@ -52,82 +77,45 @@ app.use(
 );
 
 // ==============================
-// API Routes
+// Routes
 // ==============================
 
+const authRoutes = require("./routes/authRoutes");
+const testRoutes = require("./routes/testRoutes");
+const complaintRoutes = require("./routes/complaintRoutes");
+const adminRoutes = require("./routes/adminRoutes");
+const commentRoutes = require("./routes/commentRoutes");
+
 app.use("/api/auth", authRoutes);
-
 app.use("/api/test", testRoutes);
-
 app.use("/api/complaints", complaintRoutes);
-
 app.use("/api/admin", adminRoutes);
-
 app.use("/api/comments", commentRoutes);
 
 // ==============================
-// Home Route
+// Home
 // ==============================
 
 app.get("/", (req, res) => {
-  res.send("Complaint API is running...");
-});
-
-// ==============================
-// MongoDB Atlas Connection
-// ==============================
-
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("✅ MongoDB Connected");
-  })
-  .catch((error) => {
-    console.log("❌ MongoDB Error:", error);
-  });
-
-// ==============================
-// HTTP Server
-// ==============================
-
-const server = http.createServer(app);
-
-// ==============================
-// Socket.io Setup
-// ==============================
-
-const io = new Server(server, {
-  cors: {
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST"],
-    credentials: true,
-  },
-});
-
-// ==============================
-// Socket Connection
-// ==============================
-
-io.on("connection", (socket) => {
-  console.log("🔵 User Connected:", socket.id);
-
-  socket.on("disconnect", () => {
-    console.log("🔴 User Disconnected:", socket.id);
+  res.json({
+    success: true,
+    message: "Complaint API is running...",
   });
 });
 
 // ==============================
-// Make io Available Everywhere
+// 404
 // ==============================
 
-app.set("io", io);
-
-// ==============================
-// Server Start
-// ==============================
-
-const PORT = process.env.PORT || 5000;
-
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Route not found",
+  });
 });
+
+// ==============================
+// Export
+// ==============================
+
+module.exports = app;
