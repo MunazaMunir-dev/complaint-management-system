@@ -1,3 +1,4 @@
+
 const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
@@ -9,7 +10,7 @@ dotenv.config();
 const app = express();
 
 // ==============================
-// Environment Check
+// Environment
 // ==============================
 
 console.log("MONGO_URI exists:", !!process.env.MONGO_URI);
@@ -34,7 +35,7 @@ async function connectDB() {
 
   isConnected = true;
 
-  console.log("✅ MongoDB Connected");
+  console.log("MongoDB Connected");
 }
 
 // ==============================
@@ -42,16 +43,23 @@ async function connectDB() {
 // ==============================
 
 const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:3000",
+  process.env.FRONTEND_URL,
+
+  // Current Vercel frontend
+  "https://complaint-management-system-rzmh.vercel.app",
+
+  // Previous production frontend
   "https://complaint-management-system-ppnq.vercel.app",
-];
+
+  // Local development
+  "http://localhost:5173",
+].filter(Boolean);
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests without origin
-      // (Postman, server-to-server, etc.)
+      // Allow requests without an origin
+      // such as Postman/server-to-server requests
       if (!origin) {
         return callback(null, true);
       }
@@ -60,21 +68,14 @@ app.use(
         return callback(null, true);
       }
 
-      console.log("❌ CORS blocked:", origin);
+      console.log("CORS blocked origin:", origin);
 
       return callback(new Error("Not allowed by CORS"));
     },
 
     credentials: true,
 
-    methods: [
-      "GET",
-      "POST",
-      "PUT",
-      "PATCH",
-      "DELETE",
-      "OPTIONS",
-    ],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 
     allowedHeaders: [
       "Content-Type",
@@ -83,14 +84,12 @@ app.use(
   })
 );
 
-// Handle preflight requests
-app.options("*", cors());
-
 // ==============================
 // Body Parser
 // ==============================
 
 app.use(express.json());
+
 app.use(express.urlencoded({ extended: true }));
 
 // ==============================
@@ -102,12 +101,11 @@ app.use(async (req, res, next) => {
     await connectDB();
     next();
   } catch (error) {
-    console.error("❌ MongoDB Error:", error);
+    console.error("MongoDB Error:", error);
 
     return res.status(500).json({
       success: false,
       message: "Database connection failed",
-      error: error.message,
     });
   }
 });
@@ -138,17 +136,6 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/comments", commentRoutes);
 
 // ==============================
-// Home Route
-// ==============================
-
-app.get("/", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Complaint API is running...",
-  });
-});
-
-// ==============================
 // Health Check
 // ==============================
 
@@ -156,18 +143,32 @@ app.get("/api/health", async (req, res) => {
   try {
     await connectDB();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Server and database are working",
-      database: "connected",
+      database: mongoose.connection.readyState === 1
+        ? "connected"
+        : "disconnected",
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("Health check error:", error);
+
+    return res.status(500).json({
       success: false,
       message: "Database connection failed",
-      error: error.message,
     });
   }
+});
+
+// ==============================
+// Home
+// ==============================
+
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message: "Complaint API is running...",
+  });
 });
 
 // ==============================
@@ -186,11 +187,18 @@ app.use((req, res) => {
 // ==============================
 
 app.use((err, req, res, next) => {
-  console.error("❌ Server Error:", err);
+  console.error("Server Error:", err);
 
-  res.status(500).json({
+  if (err.message === "Not allowed by CORS") {
+    return res.status(403).json({
+      success: false,
+      message: "CORS blocked this origin",
+    });
+  }
+
+  return res.status(500).json({
     success: false,
-    message: err.message || "Internal server error",
+    message: "Internal server error",
   });
 });
 
@@ -201,13 +209,13 @@ app.use((err, req, res, next) => {
 module.exports = app;
 
 // ==============================
-// Local Server
+// Local Development
 // ==============================
 
 if (require.main === module) {
   const PORT = process.env.PORT || 5000;
 
   app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
   });
 }
