@@ -45,12 +45,14 @@ async function connectDB() {
 // =====================================================
 
 const allowedOrigins = [
+  // Vercel Environment Variable
   process.env.FRONTEND_URL,
 
   // CURRENT PRODUCTION FRONTEND
   "https://complaint-management-system-sgrm.vercel.app",
 
   // OTHER FRONTEND DEPLOYMENTS
+  "https://complaint-management-system-lake.vercel.app",
   "https://complaint-management-system-rzmh.vercel.app",
   "https://complaint-management-system-ppnq.vercel.app",
 
@@ -64,7 +66,7 @@ console.log("Allowed Origins:", allowedOrigins);
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests without Origin
+      // Requests without Origin
       // e.g. Postman / server-to-server
       if (!origin) {
         return callback(null, true);
@@ -118,7 +120,6 @@ app.use(
 app.use(async (req, res, next) => {
   try {
     await connectDB();
-
     next();
   } catch (error) {
     console.error("MongoDB Error:", error);
